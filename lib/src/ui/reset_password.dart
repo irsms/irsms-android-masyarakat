@@ -22,12 +22,14 @@ class _ResetPasswordState extends State<ResetPassword> {
   void _submit() async {
     SharedPreferences prefs = await SharedPreferences.getInstance();
     String id = prefs.getString('masyarakat__members_id') ?? '';
+    String token = prefs.getString('token') ?? '';
 
     isLoading = true;
     setState(() {});
 
     Map<String, dynamic> data = {"password": _passwordController.text};
     Map<String, dynamic> params = {
+      "token": token,
       "masyarakat__members_id": id,
     };
     var controller = 'masyarakat/reset_password';

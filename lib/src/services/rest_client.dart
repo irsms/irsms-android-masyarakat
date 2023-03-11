@@ -7,7 +7,8 @@ class RestClient {
   // Genymotion => http://10.0.3.2:8080
   // String get baseURL => 'http://10.0.2.2:8080';
   // String get baseURL => 'https://v2.irsmsdev.xyz/irsmsmobile';
-  String get baseURL => 'https://irsms.korlantas.polri.go.id/irsmsmobile';
+  // String get baseURL => 'https://irsms.korlantas.polri.go.id/irsmsmobile';
+  String get baseURL => 'https://irsms.korlantas.polri.go.id/irsmstesting';
 
   /// Menghitung jumlah Laka
   ///

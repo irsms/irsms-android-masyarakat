@@ -11,6 +11,7 @@ import 'peta.dart';
 import 'profil.dart';
 import 'sipulan.dart';
 import 'slideshow.dart';
+//import 'otp.dart';
 
 class Desktop extends StatefulWidget {
   const Desktop({super.key});
@@ -274,5 +275,10 @@ final shortcut = [
     name: 'Pencarian Korban Laka',
     icon: Icons.car_crash,
     builder: (context) => const Korban(),
-  )
+  ),
+  // Shortcut(
+  //   name: 'OTP',
+  //   icon: Icons.car_crash,
+  //   builder: (context) => const Otp(),
+  // ),
 ];

@@ -10,17 +10,16 @@ class LakaModel {
   final String? statusLaporan;
   final String? kategori;
 
-  LakaModel(
-      {
-        required this.id,
-        required this.tanggal,
-        required this.namaJalan,
-        required this.pelaksanaTugas,
-        required this.petugasPelapor,
-        required this.jumlahKorban,
-        required this.deskripsi,
-        required this.gambar,
-        this.statusLaporan,
-        this.kategori,
-      });
+  LakaModel({
+    required this.id,
+    required this.tanggal,
+    required this.namaJalan,
+    required this.pelaksanaTugas,
+    required this.petugasPelapor,
+    required this.jumlahKorban,
+    required this.deskripsi,
+    required this.gambar,
+    this.statusLaporan,
+    this.kategori,
+  });
 }

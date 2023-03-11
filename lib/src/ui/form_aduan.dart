@@ -38,7 +38,7 @@ class _FormAduanState extends State<FormAduan> {
   final TextEditingController _satuanKepolisianController =
       TextEditingController();
 
-  var kategoriLaporan = ['Kategori 1', 'Kategori 2', 'Kategori 3'];
+  var kategoriLaporan = ['Kemacetan', 'Jalan Rusak', 'Rawan Laka'];
 
   String? selectedKategoriLaporan;
 

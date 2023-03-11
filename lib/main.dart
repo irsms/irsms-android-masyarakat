@@ -14,6 +14,7 @@ import 'src/ui/desktop.dart';
 import 'src/ui/registrasi.dart';
 import 'src/ui/verifikasi_akun.dart';
 import 'src/services/rest_client.dart';
+import 'package:slider_captcha/slider_capchar.dart';
 
 void main() {
   runApp(const MyApp());
@@ -56,6 +57,7 @@ class MyHomePage extends StatefulWidget {
 
 class _MyHomePageState extends State<MyHomePage> {
   final LocalAuthentication auth = LocalAuthentication();
+  final SliderController controller = SliderController();
   _SupportState _supportState = _SupportState.unknown;
   // bool? _canCheckBiometrics;
   // List<BiometricType>? _availableBiometrics;
@@ -105,7 +107,6 @@ class _MyHomePageState extends State<MyHomePage> {
       await Future.delayed(const Duration(seconds: 0));
 
       if (!mounted) return;
-
       Navigator.pushNamed(context, '/desktop');
     } else {
       if (!mounted) return;
@@ -154,6 +155,56 @@ class _MyHomePageState extends State<MyHomePage> {
   void dispose() {
     _streamSubscription.cancel();
     super.dispose();
+  }
+
+  Future<void> _dialogBuilder(BuildContext context) {
+    return showDialog<void>(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          // title: const Text('Basic dialog title'),
+          // content: const Text('A dialog is a type of modal window that\n'
+          //     'appears in front of app content to\n'
+          //     'provide critical information, or prompt\n'
+          //     'for a decision to be made.'),
+          actions: <Widget>[
+            SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 50),
+                child: SliderCaptcha(
+                  controller: controller,
+                  image: Image.asset(
+                    'assets/images/logo-irsms.png',
+                    fit: BoxFit.fitWidth,
+                  ),
+                  colorBar: Colors.blue,
+                  colorCaptChar: Colors.blue,
+                  space: 10,
+                  fixHeightParent: false,
+                  onConfirm: (value) async {
+                    if (value.toString() == 'true') {
+                      if (_formKey.currentState!.validate() && !isLoading) {
+                        await _auth();
+                      }
+                    } else {
+                      print('gagal');
+                    }
+                    // debugPrint(value.toString());
+                    return await Future.delayed(const Duration(seconds: 1))
+                        .then(
+                      (value) {
+                        // print('success');
+                        controller.create.call();
+                      },
+                    );
+                  },
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -295,10 +346,11 @@ class _MyHomePageState extends State<MyHomePage> {
                       Expanded(
                         child: TextButton(
                           onPressed: () async {
-                            if (_formKey.currentState!.validate() &&
-                                !isLoading) {
-                              await _auth();
-                            }
+                            _dialogBuilder(context);
+                            // if (_formKey.currentState!.validate() &&
+                            //     !isLoading) {
+                            //   await _auth();
+                            // }
                           },
                           style: ButtonStyle(
                             backgroundColor:

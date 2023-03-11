@@ -17,6 +17,7 @@ class ProfilEdit extends StatefulWidget {
 
 class _ProfilEditState extends State<ProfilEdit> {
   late String _token;
+  late String _id;
   late Map<String, dynamic> _profil;
 
   RestClient restClient = RestClient();
@@ -61,8 +62,12 @@ class _ProfilEditState extends State<ProfilEdit> {
 
     data.removeWhere((key, value) => value == _profil[key]);
 
-    var controller = 'masyarakat/profile/${_profil["masyarakat__members_id"]}';
-    var params = {'token': _token};
+    // var controller = 'masyarakat/profile/${_profil["masyarakat__members_id"]}';
+    var controller = 'masyarakat/profile';
+    var params = {
+      'token': _token,
+      'masyarakat__members_id': _profil["masyarakat__members_id"],
+    };
     var resp = await RestClient()
         .put(controller: controller, params: params, data: data);
 
@@ -142,6 +147,7 @@ class _ProfilEditState extends State<ProfilEdit> {
 
       SharedPreferences prefs = await SharedPreferences.getInstance();
       _token = prefs.getString('token') ?? '';
+      _id = prefs.getString('masyarakat__members_id') ?? '';
       var controller = 'masyarakat/profile';
       var params = {'token': _token};
       Map<String, dynamic> resp =

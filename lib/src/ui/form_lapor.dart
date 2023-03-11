@@ -9,6 +9,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../libraries/colors.dart' as my_colors;
 import '../services/rest_client.dart';
 import 'card_picture.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:geocoding/geocoding.dart';
 
 class Lapor extends StatefulWidget {
   const Lapor({super.key});
@@ -26,6 +28,8 @@ class _LaporState extends State<Lapor> {
   bool isLoading = false;
 
   String _token = '';
+  String? _currentAddress;
+  Position? _currentPosition;
 
   Map<String, dynamic> _wilayah = {};
 
@@ -37,7 +41,65 @@ class _LaporState extends State<Lapor> {
   final TextEditingController _mdController = TextEditingController();
   final TextEditingController _lbController = TextEditingController();
   final TextEditingController _lrController = TextEditingController();
+  final TextEditingController _latController = TextEditingController();
+  final TextEditingController _longController = TextEditingController();
   final TextEditingController _cronologicalController = TextEditingController();
+
+  Future<bool> _handleLocationPermission() async {
+    bool serviceEnabled;
+    LocationPermission permission;
+
+    serviceEnabled = await Geolocator.isLocationServiceEnabled();
+    if (!serviceEnabled) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Location services are disabled. Please enable the services')));
+      return false;
+    }
+    permission = await Geolocator.checkPermission();
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied) {
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location permissions are denied')));
+        return false;
+      }
+    }
+    if (permission == LocationPermission.deniedForever) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text(
+              'Location permissions are permanently denied, we cannot request permissions.')));
+      return false;
+    }
+    return true;
+  }
+
+  Future<void> _getCurrentPosition() async {
+    final hasPermission = await _handleLocationPermission();
+
+    if (!hasPermission) return;
+    await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high)
+        .then((Position position) {
+      setState(() => _currentPosition = position);
+      _getAddressFromLatLng(_currentPosition!);
+    }).catchError((e) {
+      debugPrint(e);
+    });
+  }
+
+  Future<void> _getAddressFromLatLng(Position position) async {
+    await placemarkFromCoordinates(
+            _currentPosition!.latitude, _currentPosition!.longitude)
+        .then((List<Placemark> placemarks) {
+      Placemark place = placemarks[0];
+      setState(() {
+        _currentAddress =
+            '${place.street}, ${place.subLocality}, ${place.subAdministrativeArea}, ${place.postalCode}';
+      });
+    }).catchError((e) {
+      debugPrint(e);
+    });
+  }
 
   void _submit() async {
     setState(() {
@@ -57,11 +119,15 @@ class _LaporState extends State<Lapor> {
 
         Map<String, dynamic> data = {
           'picture': fullPath,
-          'road_name': _roadNameController.text,
+          'road_name': _currentAddress,
           'satuan_kepolisian': _satuanKepolisianController.text,
-          'md': _mdController.text,
-          'lb': _lbController.text,
-          'lr': _lrController.text,
+          // 'md': _mdController.text,
+          // 'lb': _lbController.text,
+          // 'lr': _lrController.text,
+          // 'md': _currentPosition?.latitude,
+          // 'lb': _currentPosition?.longitude,
+          'latitude': _currentPosition?.latitude,
+          'longitude': _currentPosition?.longitude,
           'chronological': _cronologicalController.text,
           'accident_date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
           'accident_time': DateFormat('HH:mm').format(DateTime.now()),
@@ -138,6 +204,7 @@ class _LaporState extends State<Lapor> {
   void initState() {
     Future.delayed(Duration.zero, () async {
       SharedPreferences prefs = await SharedPreferences.getInstance();
+      _getCurrentPosition();
       _token = prefs.getString('token') ?? '';
 
       var controller = 'masyarakat/ref_wilayah';
@@ -199,16 +266,16 @@ class _LaporState extends State<Lapor> {
                     fillColor: Colors.white,
                     contentPadding: const EdgeInsets.only(
                         top: 0, right: 30, bottom: 0, left: 15),
-                    hintText: 'Masukkan di Sini',
+                    hintText: '${_currentAddress ?? ""}',
                   ),
-                  autovalidateMode: AutovalidateMode.always,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '* wajib diisi';
-                    }
+                  //  autovalidateMode: AutovalidateMode.always,
+                  // validator: (value) {
+                  //   if (value == null || value.isEmpty) {
+                  //     return '* wajib diisi';
+                  //   }
 
-                    return null;
-                  },
+                  //   return null;
+                  // },
                 ),
                 const SizedBox(
                   height: 16.0,
@@ -253,20 +320,20 @@ class _LaporState extends State<Lapor> {
 
                     return wilayah;
                   },
-                  autovalidateMode: AutovalidateMode.always,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '* wajib diisi';
-                    }
+                  // autovalidateMode: AutovalidateMode.always,
+                  // validator: (value) {
+                  //   if (value == null || value.isEmpty) {
+                  //     return '* wajib diisi';
+                  //   }
 
-                    return null;
-                  },
+                  //   return null;
+                  // },
                 ),
                 const SizedBox(
                   height: 16.0,
                 ),
                 const Text(
-                  'Jumlah Korban',
+                  'Titik Koordinat',
                   textAlign: TextAlign.left,
                   style: TextStyle(
                       color: my_colors.blue, fontWeight: FontWeight.bold),
@@ -274,96 +341,170 @@ class _LaporState extends State<Lapor> {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    const Expanded(child: Text('Meninggal Dunia')),
+                    const Expanded(child: Text('Latitude')),
                     Expanded(
                       child: TextFormField(
+                        enabled: false,
+                        controller: _latController,
+                        keyboardType: TextInputType.number,
+                        decoration: InputDecoration(
+                          border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10)),
+                          filled: true,
+                          fillColor: Color.fromARGB(255, 225, 222, 222),
+                          contentPadding: const EdgeInsets.only(
+                              top: 0, right: 30, bottom: 0, left: 15),
+                          hintText: '${_currentPosition?.latitude ?? ""}',
+                        ),
+                        autovalidateMode: AutovalidateMode.always,
+                        // validator: (value) {
+                        //   if (value == null || value.isEmpty) {
+                        //     return '* wajib diisi';
+                        //   }
+
+                        //   return null;
+                        // },
+                      ),
+                    ),
+                  ],
+                ),
+                // ElevatedButton(
+                //   onPressed: _getCurrentPosition,
+                //   child: const Text("Get Current Location"),
+                // ),
+                const SizedBox(
+                  height: 16.0,
+                ),
+
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Expanded(child: Text('Longitude')),
+                    Expanded(
+                      child: TextFormField(
+                        enabled: false,
                         controller: _mdController,
                         keyboardType: TextInputType.number,
                         decoration: InputDecoration(
                           border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10)),
                           filled: true,
-                          fillColor: Colors.white,
+                          fillColor: Color.fromARGB(255, 225, 222, 222),
                           contentPadding: const EdgeInsets.only(
                               top: 0, right: 30, bottom: 0, left: 15),
-                          hintText: 'Masukkan di Sini',
+                          hintText: '${_currentPosition?.longitude ?? ""}',
                         ),
                         autovalidateMode: AutovalidateMode.always,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '* wajib diisi';
-                          }
+                        // validator: (value) {
+                        //   if (value == null || value.isEmpty) {
+                        //     return '* wajib diisi';
+                        //   }
 
-                          return null;
-                        },
+                        //   return null;
+                        // },
                       ),
                     ),
                   ],
                 ),
-                const SizedBox(
-                  height: 16.0,
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Expanded(child: Text('Luka Berat')),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lbController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.only(
-                              top: 0, right: 30, bottom: 0, left: 15),
-                          hintText: 'Masukkan di Sini',
-                        ),
-                        autovalidateMode: AutovalidateMode.always,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '* wajib diisi';
-                          }
+                // const Text(
+                //   'Jumlah Korban',
+                //   textAlign: TextAlign.left,
+                //   style: TextStyle(
+                //       color: my_colors.blue, fontWeight: FontWeight.bold),
+                // ),
+                // Row(
+                //   mainAxisSize: MainAxisSize.min,
+                //   children: [
+                //     const Expanded(child: Text('Meninggal Dunia')),
+                //     Expanded(
+                //       child: TextFormField(
+                //         controller: _mdController,
+                //         keyboardType: TextInputType.number,
+                //         decoration: InputDecoration(
+                //           border: OutlineInputBorder(
+                //               borderRadius: BorderRadius.circular(10)),
+                //           filled: true,
+                //           fillColor: Colors.white,
+                //           contentPadding: const EdgeInsets.only(
+                //               top: 0, right: 30, bottom: 0, left: 15),
+                //           hintText: 'Masukkan di Sini',
+                //         ),
+                //         autovalidateMode: AutovalidateMode.always,
+                //         validator: (value) {
+                //           if (value == null || value.isEmpty) {
+                //             return '* wajib diisi';
+                //           }
 
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(
-                  height: 16.0,
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: <Widget>[
-                    const Expanded(child: Text('Luka Ringan')),
-                    Expanded(
-                      child: TextFormField(
-                        controller: _lrController,
-                        keyboardType: TextInputType.number,
-                        decoration: InputDecoration(
-                          border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10)),
-                          filled: true,
-                          fillColor: Colors.white,
-                          contentPadding: const EdgeInsets.only(
-                              top: 0, right: 30, bottom: 0, left: 15),
-                          hintText: 'Masukkan di Sini',
-                        ),
-                        autovalidateMode: AutovalidateMode.always,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return '* wajib diisi';
-                          }
+                //           return null;
+                //         },
+                //       ),
+                //     ),
+                //   ],
+                // ),
+                // const SizedBox(
+                //   height: 16.0,
+                // ),
+                // Row(
+                //   mainAxisSize: MainAxisSize.min,
+                //   children: [
+                //     const Expanded(child: Text('Luka Berat')),
+                //     Expanded(
+                //       child: TextFormField(
+                //         controller: _lbController,
+                //         keyboardType: TextInputType.number,
+                //         decoration: InputDecoration(
+                //           border: OutlineInputBorder(
+                //               borderRadius: BorderRadius.circular(10)),
+                //           filled: true,
+                //           fillColor: Colors.white,
+                //           contentPadding: const EdgeInsets.only(
+                //               top: 0, right: 30, bottom: 0, left: 15),
+                //           hintText: 'Masukkan di Sini',
+                //         ),
+                //         autovalidateMode: AutovalidateMode.always,
+                //         validator: (value) {
+                //           if (value == null || value.isEmpty) {
+                //             return '* wajib diisi';
+                //           }
 
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
+                //           return null;
+                //         },
+                //       ),
+                //     ),
+                //   ],
+                // ),
+                // const SizedBox(
+                //   height: 16.0,
+                // ),
+                // Row(
+                //   mainAxisSize: MainAxisSize.min,
+                //   children: <Widget>[
+                //     const Expanded(child: Text('Luka Ringan')),
+                //     Expanded(
+                //       child: TextFormField(
+                //         controller: _lrController,
+                //         keyboardType: TextInputType.number,
+                //         decoration: InputDecoration(
+                //           border: OutlineInputBorder(
+                //               borderRadius: BorderRadius.circular(10)),
+                //           filled: true,
+                //           fillColor: Colors.white,
+                //           contentPadding: const EdgeInsets.only(
+                //               top: 0, right: 30, bottom: 0, left: 15),
+                //           hintText: 'Masukkan di Sini',
+                //         ),
+                //         autovalidateMode: AutovalidateMode.always,
+                //         validator: (value) {
+                //           if (value == null || value.isEmpty) {
+                //             return '* wajib diisi';
+                //           }
+
+                //           return null;
+                //         },
+                //       ),
+                //     ),
+                //   ],
+                // ),
                 const SizedBox(
                   height: 16.0,
                 ),
@@ -385,14 +526,14 @@ class _LaporState extends State<Lapor> {
                         top: 0, right: 30, bottom: 0, left: 15),
                     hintText: 'Masukkan di Sini',
                   ),
-                  autovalidateMode: AutovalidateMode.always,
-                  validator: (value) {
-                    if (value == null || value.isEmpty) {
-                      return '* wajib diisi';
-                    }
+                  // autovalidateMode: AutovalidateMode.always,
+                  // validator: (value) {
+                  //   if (value == null || value.isEmpty) {
+                  //     return '* wajib diisi';
+                  //   }
 
-                    return null;
-                  },
+                  //   return null;
+                  // },
                 ),
                 const SizedBox(
                   height: 16.0,
